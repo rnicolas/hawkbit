@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: hawkbit
+      MYSQL_USER: hawkbituser
+      MYSQL_PASSWORD: hawkbitpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  hawkbit:
+    image: hawkbit/hawkbit-update-server:latest
+    container_name: hawkbit
+    depends_on:
+      - mariadb
+      - rabbitmq
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # Use MariaDB instead of embedded H2
+      SPRING_JPA_DATABASE: MYSQL
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/hawkbit
+      SPRING_DATASOURCE_USERNAME: hawkbituser
+      SPRING_DATASOURCE_PASSWORD: hawkbitpass
+      SPRING_DATASOURCE_DRIVERCLASSNAME: org.mariadb.jdbc.Driver
+      # RabbitMQ config
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_RABBITMQ_VIRTUALHOST: /
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+
+      # 🔥 Accept connections from any host (this is the critical fix)
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_USE_FORWARD_HEADERS: true
+
+    volumes:
+      - hawkbit_data:/opt/hawkbit/data
+
+volumes:
+  mariadb_data:
+  hawkbit_data:
